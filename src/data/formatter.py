@@ -163,6 +163,8 @@ CRITICAL RULES:
    - Example: "11 11, 11 12" with bilateral = 2 sets total (not 4)
 3. Ignore ALL non-training content (emotions, diary entries, social notes)
 4. Map Chinese exercise names to English using the mapping below
+   - If exercise NOT in mapping: Keep Chinese name AND add "[UNMAPPED]" prefix
+   - Example: "臀桥" not in mapping → "exercise": "[UNMAPPED] 臀桥"
 5. Preserve individual set reps as arrays: [17, 15, 15]
 6. Use null for missing RPE values
 7. Extract rest times if present (optional field, can be null)
