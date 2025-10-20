@@ -72,10 +72,20 @@ api_generated/
 test_cli_concurrent/
 test_output_concurrent/
 
-# Personal workout data (keep sample data for testing)
+# Personal workout data (keep sample data and directory structure)
+# Root level: ignore all except samples
 data/*
 !data/sample_workout.csv
+!data/sample_log.txt
 !data/.gitkeep
+!data/raw/
+!data/formatted/
+
+# Subdirectories: ignore personal data, keep structure
+data/raw/*.txt
+data/formatted/*.csv
+!data/raw/.gitkeep
+!data/formatted/.gitkeep
 
 # Database files and development artifacts
 *.db
