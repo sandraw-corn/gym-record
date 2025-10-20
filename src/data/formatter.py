@@ -44,6 +44,8 @@ EXERCISE_MAPPING = {
     "坐姿腿屈伸": "Leg Extension",
     "髋外展": "Hip Abduction",
     "髋内收": "Hip Adduction",
+    "臀桥": "Hip Thrust",
+    "臀推": "Hip Thrust",
     "提踵": "Calf Raise",
     "站姿提踵": "Standing Calf Raise",
     "坐姿提踵": "Seated Calf Raise",
