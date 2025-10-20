@@ -60,6 +60,110 @@
 
 ---
 
+## Known Issues & Pain Points
+
+### Data Aggregation Problem (CRITICAL)
+
+**Current Problem**: Manual CSV concatenation required for multi-workout analysis
+
+**Current Workflow** (painful):
+```bash
+# User must manually concatenate CSVs for analysis
+cat data/formatted/2025-10-08.csv > data/all_workouts.csv
+tail -n +2 data/formatted/2025-10-14.csv >> data/all_workouts.csv
+tail -n +2 data/formatted/2025-10-19.csv >> data/all_workouts.csv
+
+# Then analyze
+python -m cli.gym_cli analyze --data data/all_workouts.csv
+```
+
+**Why This Sucks**:
+- ❌ Manual process every time you add new workout
+- ❌ Easy to forget to update `all_workouts.csv`
+- ❌ No single source of truth
+- ❌ Can't query "show me all leg workouts" without manual filtering
+- ❌ No way to track which files are included
+- ❌ Breaks when you have 50+ workout files
+
+**Proposed Solutions**:
+
+#### Option 1: Automatic CSV Aggregation
+```bash
+# CLI automatically loads all CSVs in data/formatted/
+python -m cli.gym_cli analyze --focus strength
+# → Automatically scans data/formatted/*.csv
+
+# Or explicit directory
+python -m cli.gym_cli analyze --data-dir data/formatted/
+```
+
+**Pros**: Simple, no new dependencies
+**Cons**: Still CSV-based, no querying capability
+
+#### Option 2: SQLite Database (Recommended)
+```bash
+# Import formatted CSVs to local SQLite database
+python -m cli.gym_cli db import --input data/formatted/2025-10-08.csv
+
+# Analyze from database
+python -m cli.gym_cli analyze --focus strength
+# → Queries: SELECT * FROM workouts WHERE date >= '2025-10-01'
+
+# Batch import
+python -m cli.gym_cli db import --dir data/formatted/
+```
+
+**Pros**:
+- ✅ Single source of truth
+- ✅ SQL queries (filter by date, exercise, rep range)
+- ✅ No manual concatenation
+- ✅ Track import history
+- ✅ Efficient for large datasets
+
+**Cons**: Adds SQLite dependency (but it's in Python stdlib)
+
+#### Option 3: PostgreSQL (Overkill for now)
+- Full-featured database
+- Better for multi-user or web app
+- Too heavy for single-user CLI tool
+
+**Decision**: Implement **Option 2 (SQLite)** in separate branch `feat/database-backend`
+
+**Implementation Plan**:
+- [ ] Create SQLite schema (workouts table, metadata table)
+- [ ] Add `db import` command (CSV → SQLite)
+- [ ] Add `db list` command (show imported workouts)
+- [ ] Update `analyze`, `visualize`, `compare` to use SQLite by default
+- [ ] Keep CSV output as export option
+- [ ] Add migration tool: existing CSVs → SQLite
+
+**Database Schema (Draft)**:
+```sql
+CREATE TABLE workouts (
+    id INTEGER PRIMARY KEY,
+    date TEXT NOT NULL,
+    exercise TEXT NOT NULL,
+    sets INTEGER NOT NULL,
+    reps INTEGER NOT NULL,
+    weight REAL NOT NULL,
+    rpe REAL,
+    notes TEXT,
+    rest_times TEXT, -- JSON array
+    source_file TEXT, -- original filename
+    imported_at TIMESTAMP,
+    UNIQUE(date, exercise, sets, reps, weight) -- prevent duplicates
+);
+
+CREATE TABLE import_history (
+    id INTEGER PRIMARY KEY,
+    source_file TEXT NOT NULL,
+    imported_at TIMESTAMP,
+    records_imported INTEGER
+);
+```
+
+---
+
 ## Planned Features
 
 ### Batch Processing & Workflow Automation
