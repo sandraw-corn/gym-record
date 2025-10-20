@@ -68,6 +68,8 @@ def _display_image_with_chafa(image_path: str):
             'chafa',
             '--size', f'60x{terminal_height}',  # Fit to terminal width
             '--format', 'symbols',  # Use symbols for better quality
+            '--colors', 'full',  # Full truecolor (24-bit)
+            '--color-space', 'rgb',  # RGB color space
             '--dither', 'none',  # No dithering for charts
             str(image_path)
         ], check=True)
