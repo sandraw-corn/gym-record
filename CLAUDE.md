@@ -186,6 +186,41 @@ style: improve graph color schemes for readability
 refactor: modularize chart generation code
 ```
 
+## File Organization
+
+### Key Documentation Files
+
+**Core Development Docs (Frequently Updated):**
+- **`CLAUDE.md`** (this file) - Architecture guidance, setup instructions, Claude Code workflow
+  - ✅ Should contain: Project structure, setup commands, architecture overview
+  - ❌ Should NOT contain: Current todos, temporary status updates
+
+- **`docs/development.md`** - Current development priorities only
+  - ✅ Should contain: Active todos, technical problems, implementation priorities
+  - ❌ Should NOT contain: Completed tasks (tracked in git history)
+
+- **`README.md`** - Project overview and quick start
+  - ✅ Should contain: High-level overview, quick start, main features
+  - ❌ Should NOT contain: Detailed architecture, current development status
+
+**Documentation Management:**
+Use `/update-docs` when documentation appears outdated or before creating pull requests.
+
+### Documentation Structure
+- `docs/development.md` - **CURRENT PRIORITIES**: Active todos, phase tracking, technical decisions
+- `docs/visualization-guide.md` (future) - Graph specifications, color palettes, examples
+- `docs/troubleshooting.md` (future) - Common issues and solutions
+
+### Code Structure
+- `src/data/` - Data loading and processing modules
+- `src/analysis/` - Statistical analysis and metrics calculation
+- `src/visualization/` - Graph generation with academic styling
+- `cli/gym_cli.py` - Command-line interface with click
+
+### Data Organization
+- `data/` - Workout data CSV files (git ignored, except samples)
+- `output/` - Generated PNG visualizations (git ignored)
+
 ### Future Enhancements
 - Interactive web dashboard (optional)
 - Export to PDF for detailed reports
