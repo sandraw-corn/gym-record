@@ -6,15 +6,19 @@ Usage:
     source ~/.zshrc && conda activate gym-record && python -m cli.gym_cli <command>
 
 Commands:
+    format    - Convert raw Chinese workout logs to structured CSV
     visualize - Generate visualization graphs
     analyze   - Perform statistical analysis
     compare   - Compare multiple exercises
     list-data - List available workout data
 """
 
+import sys
+import json
+import csv
 import click
 from pathlib import Path
-import sys
+from datetime import datetime
 
 from src.data.loader import WorkoutDataLoader
 from src.visualization.charts import (
@@ -36,6 +40,125 @@ from src.analysis.metrics import (
 def cli():
     """Gym Record Analysis & Visualization CLI"""
     pass
+
+
+@cli.command()
+@click.option('--input', '-i', type=click.Path(exists=True), help='Input file (raw Chinese log). If not provided, reads from stdin.')
+@click.option('--output', '-o', type=click.Path(), help='Output CSV file. If not provided, writes to stdout.')
+@click.option('--date', '-d', help='Date for workout (YYYY-MM-DD). If not provided, LLM will infer.')
+@click.option('--dry-run', is_flag=True, help='Preview JSON output without writing CSV')
+@click.option('--json-output', is_flag=True, help='Output JSON instead of CSV')
+@click.option('--detailed', is_flag=True, help='Output one row per set (default: one row per exercise)')
+@click.option('--validate/--no-validate', default=True, help='Validate output schema (default: True)')
+def format(input, output, date, dry_run, json_output, detailed, validate):
+    """Convert raw Chinese workout logs to structured CSV/JSON"""
+
+    # Import here to avoid slow startup for other commands
+    from src.data.formatter import WorkoutLogFormatter
+
+    # Read input
+    if input:
+        with open(input, 'r', encoding='utf-8') as f:
+            raw_log = f.read()
+        click.echo(f"📖 Reading from: {input}")
+    else:
+        click.echo("📖 Reading from stdin (Ctrl+D when done)...")
+        raw_log = sys.stdin.read()
+
+    if not raw_log.strip():
+        click.secho("✗ No input provided", fg='red')
+        sys.exit(1)
+
+    # Validate date format if provided
+    if date:
+        try:
+            datetime.strptime(date, '%Y-%m-%d')
+        except ValueError:
+            click.secho(f"✗ Invalid date format: {date} (use YYYY-MM-DD)", fg='red')
+            sys.exit(1)
+
+    # Format log
+    click.echo("🤖 Processing with Gemini API...")
+
+    try:
+        formatter = WorkoutLogFormatter()
+        result = formatter.format_log(raw_log, date=date, validate=validate)
+    except ValueError as e:
+        click.secho(f"✗ Configuration error: {e}", fg='red')
+        click.echo("   Check that GOOGLE_API_KEY is set in .env file")
+        sys.exit(1)
+    except Exception as e:
+        click.secho(f"✗ Formatting failed: {e}", fg='red')
+        sys.exit(1)
+
+    # Check for errors
+    if not result['success']:
+        click.secho(f"✗ Formatting failed: {result.get('error')}", fg='red')
+
+        if 'validation_errors' in result:
+            click.echo("\nValidation errors:")
+            for error in result['validation_errors']:
+                click.echo(f"  • {error}")
+
+        sys.exit(1)
+
+    data = result['data']
+    click.secho(f"✓ Successfully formatted {len(data)} exercise(s)", fg='green')
+
+    # Dry run - just show JSON
+    if dry_run:
+        click.echo("\n" + "=" * 70)
+        click.echo("Preview (JSON):")
+        click.echo("=" * 70)
+        click.echo(json.dumps(data, indent=2, ensure_ascii=False))
+        click.echo("\nTo save as CSV, remove --dry-run flag")
+        return
+
+    # JSON output mode
+    if json_output:
+        json_str = json.dumps(data, indent=2, ensure_ascii=False)
+
+        if output:
+            with open(output, 'w', encoding='utf-8') as f:
+                f.write(json_str)
+            click.secho(f"✓ JSON saved to: {output}", fg='green')
+        else:
+            click.echo(json_str)
+
+        return
+
+    # CSV output mode (default)
+    # Use aggregated format (one row per exercise) for compatibility with main branch
+    # Use detailed format (one row per set) only if --detailed flag is specified
+    if detailed:
+        csv_rows = formatter.format_to_csv_rows(data)
+    else:
+        csv_rows = formatter.format_to_csv_aggregated(data)
+
+    if not csv_rows:
+        click.secho("⚠ No data to export", fg='yellow')
+        return
+
+    # Determine fieldnames from first row
+    fieldnames = list(csv_rows[0].keys())
+
+    if output:
+        # Write to file
+        output_path = Path(output)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+
+        with open(output_path, 'w', newline='', encoding='utf-8') as f:
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(csv_rows)
+
+        click.secho(f"✓ CSV saved to: {output}", fg='green')
+        click.echo(f"  {len(csv_rows)} row(s) written")
+    else:
+        # Write to stdout
+        writer = csv.DictWriter(sys.stdout, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(csv_rows)
 
 
 @cli.command()
