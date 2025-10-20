@@ -25,7 +25,8 @@ from src.visualization.charts import (
     create_strength_progression_chart,
     create_volume_chart,
     create_comparison_chart,
-    create_combined_metrics_chart
+    create_combined_metrics_chart,
+    create_rep_range_heatmap
 )
 from src.visualization.styling import save_figure
 from src.analysis.metrics import (
@@ -164,7 +165,7 @@ def format(input, output, date, dry_run, json_output, detailed, validate):
 
 @cli.command()
 @click.option('--exercise', '-e', required=True, help='Exercise name (e.g., "Bench Press")')
-@click.option('--metric', '-m', type=click.Choice(['strength', 'volume', '1rm', 'combined']), default='strength', help='Metric to visualize')
+@click.option('--metric', '-m', type=click.Choice(['volume', 'strength', '1rm', 'combined', 'rep_range']), default='volume', help='Metric to visualize (default: volume for hypertrophy)')
 @click.option('--output', '-o', type=click.Path(), help='Output file path')
 @click.option('--period', '-p', default='all', help='Time period (e.g., "12weeks", "3months", "all")')
 @click.option('--data', '-d', default='data/sample_workout.csv', help='Path to workout data CSV')
@@ -175,14 +176,17 @@ def visualize(exercise, metric, output, period, data, theme, no_stats, no_record
     """Generate visualization graphs for workout progression
 
     Examples:
-        # Dark theme strength chart with PR markers and stats (default)
+        # Dark theme volume chart with stats (default - hypertrophy focus)
         python -m cli.gym_cli visualize -e "Bench Press"
 
-        # Combined strength + volume chart
+        # Rep range analysis for hypertrophy zone
+        python -m cli.gym_cli visualize -e "Squat" -m rep_range
+
+        # Combined volume + rep progression (hypertrophy mode)
         python -m cli.gym_cli visualize -e "Squat" -m combined
 
-        # Light theme for daytime viewing
-        python -m cli.gym_cli visualize -e "Deadlift" -t light
+        # Strength chart for powerlifting analysis
+        python -m cli.gym_cli visualize -e "Deadlift" -m strength
     """
     try:
         # Load data
@@ -212,6 +216,7 @@ def visualize(exercise, metric, output, period, data, theme, no_stats, no_record
                 show_trend=True,
                 show_statistics=show_stats,
                 show_records=show_records,
+                show_prediction=True,
                 theme=theme
             )
         elif metric == 'volume':
@@ -222,15 +227,26 @@ def visualize(exercise, metric, output, period, data, theme, no_stats, no_record
                 exercise=exercise,
                 chart_type='bar',
                 show_statistics=show_stats,
+                show_prediction=True,
+                theme=theme
+            )
+        elif metric == 'rep_range':
+            click.echo(f"📊 Generating rep range analysis chart for {exercise}...")
+            click.echo(f"   Theme: {theme} | Stats: {show_stats}")
+            fig = create_rep_range_heatmap(
+                df,
+                exercise=exercise,
+                show_statistics=show_stats,
                 theme=theme
             )
         elif metric == 'combined':
             click.echo(f"📊 Generating combined metrics chart for {exercise}...")
-            click.echo(f"   Theme: {theme} | Stats: {show_stats}")
+            click.echo(f"   Theme: {theme} | Stats: {show_stats} | Mode: hypertrophy")
             fig = create_combined_metrics_chart(
                 df,
                 exercise=exercise,
                 show_statistics=show_stats,
+                mode='hypertrophy',
                 theme=theme
             )
 
@@ -352,7 +368,7 @@ def analyze(focus, period, data):
 
 @cli.command()
 @click.option('--exercises', '-e', required=True, help='Comma-separated list of exercises')
-@click.option('--metric', '-m', type=click.Choice(['strength', 'volume', '1rm']), default='strength', help='Comparison metric')
+@click.option('--metric', '-m', type=click.Choice(['volume', 'strength', '1rm']), default='volume', help='Comparison metric (default: volume for hypertrophy)')
 @click.option('--output', '-o', type=click.Path(), help='Output file path')
 @click.option('--data', '-d', default='data/sample_workout.csv', help='Path to workout data CSV')
 @click.option('--theme', '-t', type=click.Choice(['dark', 'light']), default='dark', help='Color theme (default: dark for night viewing)')

@@ -35,6 +35,7 @@ def create_strength_progression_chart(
     show_trend: bool = True,
     show_statistics: bool = True,
     show_records: bool = True,
+    show_prediction: bool = True,
     theme: str = 'dark',
     formula: str = 'epley'
 ) -> Figure:
@@ -48,6 +49,7 @@ def create_strength_progression_chart(
         show_trend: Whether to show trend line
         show_statistics: Whether to show statistical annotations (avg, % change)
         show_records: Whether to mark personal records
+        show_prediction: Whether to show progressive overload prediction (default: True)
         theme: Color theme ('dark' or 'light'). Default: 'dark'
         formula: 1RM formula to use ('epley', 'brzycki', 'lombardi')
 
@@ -60,6 +62,7 @@ def create_strength_progression_chart(
         - Optional trend line
         - Statistical annotations (avg, % improvement)
         - PR markers
+        - Progressive overload prediction (dashed gold line)
         - Date formatting on x-axis
         - Dark theme optimized for night viewing
     """
@@ -151,6 +154,68 @@ def create_strength_progression_chart(
             zorder=2
         )
 
+    # Add progressive overload prediction if requested
+    if show_prediction and len(df_grouped) >= 2:
+        # Use trend line for prediction
+        x_numeric = mdates.date2num(df_grouped['date'])
+        y = df_grouped['estimated_1rm'].values
+
+        # Linear regression
+        slope, intercept = np.polyfit(x_numeric, y, 1)
+
+        # Project forward for next workout (7 days ahead)
+        last_date = df_grouped['date'].iloc[-1]
+        next_workout_date = last_date + pd.Timedelta(days=7)
+        next_workout_numeric = mdates.date2num(next_workout_date)
+        predicted_1rm = slope * next_workout_numeric + intercept
+
+        # Create prediction line from last actual point to prediction
+        prediction_x = [last_date, next_workout_date]
+        prediction_y = [df_grouped['estimated_1rm'].iloc[-1], predicted_1rm]
+
+        # Plot prediction with dashed gold line
+        ax.plot(
+            prediction_x,
+            prediction_y,
+            linestyle=':',
+            linewidth=3.5,
+            color='#FFD700',  # Gold
+            alpha=0.85,
+            label='Next Goal',
+            zorder=2
+        )
+
+        # Add target marker at prediction point
+        ax.scatter(
+            next_workout_date,
+            predicted_1rm,
+            marker='D',  # Diamond
+            s=250,
+            color='#FFD700',
+            edgecolor=text_color,
+            linewidth=2,
+            zorder=4,
+            alpha=0.85
+        )
+
+        # Add annotation for predicted value
+        ax.annotate(
+            f'Goal: {predicted_1rm:.1f} kg',
+            xy=(next_workout_date, predicted_1rm),
+            xytext=(10, 10),
+            textcoords='offset points',
+            fontsize=13,
+            fontweight='bold',
+            color='#FFD700',
+            bbox=dict(
+                boxstyle='round,pad=0.5',
+                facecolor='#3a3a3a' if theme == 'dark' else '#f0f0f0',
+                edgecolor='#FFD700',
+                linewidth=2,
+                alpha=0.95
+            )
+        )
+
     # Add statistical annotations if requested
     if show_statistics and len(df_grouped) >= 2:
         # Calculate statistics
@@ -225,6 +290,7 @@ def create_volume_chart(
     title: Optional[str] = None,
     chart_type: str = 'bar',
     show_statistics: bool = True,
+    show_prediction: bool = True,
     theme: str = 'dark'
 ) -> Figure:
     """
@@ -236,6 +302,7 @@ def create_volume_chart(
         title: Custom title (optional)
         chart_type: 'bar', 'line', or 'area'
         show_statistics: Whether to show statistical annotations
+        show_prediction: Whether to show progressive overload prediction (default: True)
         theme: Color theme ('dark' or 'light'). Default: 'dark'
 
     Returns:
@@ -245,6 +312,7 @@ def create_volume_chart(
         - Total volume (sets × reps × weight) over time
         - Bar, line, or area visualization
         - Statistical annotations
+        - Progressive overload prediction (dashed gold line)
         - Date formatting
         - Dark theme optimized for night viewing
     """
@@ -296,6 +364,71 @@ def create_volume_chart(
             volume_series.values,
             linewidth=3.5,
             color=primary_color
+        )
+
+    # Add progressive overload prediction if requested
+    if show_prediction and len(volume_series) >= 2:
+        # Convert dates to numeric for regression
+        x_numeric = mdates.date2num(volume_series.index)
+        y = volume_series.values
+
+        # Linear regression
+        slope, intercept = np.polyfit(x_numeric, y, 1)
+
+        # Project forward for next workout (7 days ahead)
+        last_date = volume_series.index[-1]
+        next_workout_date = last_date + pd.Timedelta(days=7)
+        next_workout_numeric = mdates.date2num(next_workout_date)
+        predicted_volume = slope * next_workout_numeric + intercept
+
+        # Ensure predicted volume is positive
+        predicted_volume = max(predicted_volume, 0)
+
+        # Create prediction line from last actual point to prediction
+        prediction_x = [last_date, next_workout_date]
+        prediction_y = [volume_series.iloc[-1], predicted_volume]
+
+        # Plot prediction with dotted gold line
+        ax.plot(
+            prediction_x,
+            prediction_y,
+            linestyle=':',
+            linewidth=3.5,
+            color='#FFD700',  # Gold
+            alpha=0.85,
+            label='Next Goal',
+            zorder=3
+        )
+
+        # Add target marker at prediction point
+        ax.scatter(
+            next_workout_date,
+            predicted_volume,
+            marker='D',  # Diamond
+            s=250,
+            color='#FFD700',
+            edgecolor=text_color,
+            linewidth=2,
+            zorder=4,
+            alpha=0.85
+        )
+
+        # Add annotation for predicted value
+        ax.annotate(
+            f'Goal: {predicted_volume:.0f} kg',
+            xy=(next_workout_date, predicted_volume),
+            xytext=(10, 10),
+            textcoords='offset points',
+            fontsize=13,
+            fontweight='bold',
+            color='#FFD700',
+            bbox=dict(
+                boxstyle='round,pad=0.5',
+                facecolor='#3a3a3a' if theme == 'dark' else '#f0f0f0',
+                edgecolor='#FFD700',
+                linewidth=2,
+                alpha=0.95
+            )
         )
 
     # Add statistical annotations if requested
@@ -354,6 +487,144 @@ def create_volume_chart(
     ax.xaxis.set_major_formatter(mdates.DateFormatter('%b %d'))
     ax.xaxis.set_major_locator(mdates.AutoDateLocator())
     fig.autofmt_xdate()
+
+    # Adjust layout
+    fig.tight_layout()
+
+    return fig
+
+
+# ============================================================================
+# REP RANGE ANALYSIS CHARTS
+# ============================================================================
+
+def create_rep_range_heatmap(
+    data: pd.DataFrame,
+    exercise: str,
+    title: Optional[str] = None,
+    show_statistics: bool = True,
+    theme: str = 'dark'
+) -> Figure:
+    """
+    Create rep range heatmap showing optimal hypertrophy zones.
+
+    Args:
+        data: DataFrame with workout data
+        exercise: Exercise name to visualize
+        title: Custom title (optional)
+        show_statistics: Whether to show statistical annotations
+        theme: Color theme ('dark' or 'light'). Default: 'dark'
+
+    Returns:
+        matplotlib Figure with 9:16 aspect ratio
+
+    Chart features:
+        - Rep range distribution over time
+        - Hypertrophy zone highlighted (8-12 reps)
+        - Set count per rep range
+        - Statistical annotations (% in hypertrophy zone)
+        - Dark theme optimized for night viewing
+    """
+    # Filter data for specific exercise
+    df = data[data['exercise'].str.lower() == exercise.lower()].copy()
+
+    if len(df) == 0:
+        raise ValueError(f"No data found for exercise: {exercise}")
+
+    # Create 9:16 figure with theme
+    fig = create_9_16_figure(theme=theme)
+    ax = fig.add_subplot(111)
+
+    # Get theme colors
+    primary_color = get_primary_color(theme=theme)
+    text_color = '#e0e0e0' if theme == 'dark' else '#2b2b2b'
+
+    # Calculate rep range distribution
+    rep_counts = df['reps'].value_counts().sort_index()
+
+    # Define hypertrophy zone (8-12 reps)
+    hypertrophy_min, hypertrophy_max = 8, 12
+
+    # Create colors: gold for hypertrophy zone, primary color for others
+    colors = [
+        '#FFD700' if hypertrophy_min <= rep <= hypertrophy_max else primary_color
+        for rep in rep_counts.index
+    ]
+
+    # Create bar chart
+    ax.bar(
+        rep_counts.index,
+        rep_counts.values,
+        color=colors,
+        alpha=0.85,
+        edgecolor=text_color,
+        linewidth=1.8
+    )
+
+    # Highlight hypertrophy zone with background
+    ax.axvspan(
+        hypertrophy_min - 0.5,
+        hypertrophy_max + 0.5,
+        alpha=0.15,
+        color='#FFD700',
+        zorder=0,
+        label='Hypertrophy Zone (8-12 reps)'
+    )
+
+    # Add statistical annotations if requested
+    if show_statistics:
+        # Calculate percentage in hypertrophy zone
+        total_sets = len(df)
+        hypertrophy_sets = len(df[(df['reps'] >= hypertrophy_min) & (df['reps'] <= hypertrophy_max)])
+        hypertrophy_pct = (hypertrophy_sets / total_sets) * 100 if total_sets > 0 else 0
+
+        # Calculate average reps
+        avg_reps = df['reps'].mean()
+
+        # Add text box with statistics
+        stats_text = (
+            f'Total sets: {total_sets}\n'
+            f'Hypertrophy zone: {hypertrophy_pct:.1f}%\n'
+            f'Average reps: {avg_reps:.1f}'
+        )
+
+        ax.text(
+            0.95, 0.95,
+            stats_text,
+            transform=ax.transAxes,
+            fontsize=14,
+            verticalalignment='top',
+            horizontalalignment='right',
+            bbox=dict(
+                boxstyle='round,pad=0.8',
+                facecolor='#3a3a3a' if theme == 'dark' else '#f0f0f0',
+                edgecolor='#FFD700',
+                linewidth=2,
+                alpha=0.95
+            ),
+            color=text_color,
+            fontweight='bold'
+        )
+
+    # Apply academic styling with theme
+    apply_academic_style(ax, theme=theme)
+
+    # Labels and title (larger fonts for mobile)
+    ax.set_xlabel('Reps per Set', fontsize=16, fontweight='bold')
+    ax.set_ylabel('Number of Sets', fontsize=16, fontweight='bold')
+
+    if title:
+        ax.set_title(title, fontsize=20, fontweight='bold', pad=20)
+    else:
+        ax.set_title(
+            f'{exercise} - Rep Range Analysis',
+            fontsize=20,
+            fontweight='bold',
+            pad=20
+        )
+
+    # Legend with larger font
+    ax.legend(loc='upper left', fontsize=13, framealpha=0.95)
 
     # Adjust layout
     fig.tight_layout()
@@ -488,10 +759,10 @@ def create_combined_metrics_chart(
     title: Optional[str] = None,
     show_statistics: bool = True,
     theme: str = 'dark',
-    formula: str = 'epley'
+    mode: str = 'hypertrophy'
 ) -> Figure:
     """
-    Create combined chart showing both strength and volume progression.
+    Create combined chart showing hypertrophy-focused metrics (volume + rep range).
 
     Args:
         data: DataFrame with workout data
@@ -499,15 +770,19 @@ def create_combined_metrics_chart(
         title: Custom title (optional)
         show_statistics: Whether to show statistical annotations
         theme: Color theme ('dark' or 'light'). Default: 'dark'
-        formula: 1RM formula to use ('epley', 'brzycki', 'lombardi')
+        mode: Chart mode ('hypertrophy' for volume+reps, 'powerlifting' for 1RM+volume)
 
     Returns:
         matplotlib Figure with 9:16 aspect ratio
 
     Chart features:
         - Two subplots stacked vertically
-        - Top: Strength progression (1RM)
-        - Bottom: Volume tracking
+        - Hypertrophy mode (default):
+          - Top: Volume progression over time
+          - Bottom: Average reps per workout (hypertrophy zone highlighted)
+        - Powerlifting mode:
+          - Top: Strength progression (1RM)
+          - Bottom: Volume tracking
         - Shared x-axis for time alignment
         - Statistical annotations on both
         - Dark theme optimized for night viewing
@@ -518,129 +793,235 @@ def create_combined_metrics_chart(
     if len(df) == 0:
         raise ValueError(f"No data found for exercise: {exercise}")
 
-    # Calculate strength data
-    df['estimated_1rm'] = df.apply(
-        lambda row: calculate_1rm(row['weight'], row['reps'], formula),
-        axis=1
-    )
-    df_strength = df.groupby('date').agg({
-        'estimated_1rm': 'max',
-        'weight': 'max'
-    }).reset_index()
-
-    # Calculate volume data
+    # Calculate volume data (used in both modes)
     volume_series = calculate_volume_over_time(data, exercise=exercise)
+
+    # Calculate rep progression (average reps per workout)
+    rep_progression = df.groupby('date')['reps'].mean().sort_index()
 
     # Create 9:16 figure with theme
     fig = create_9_16_figure(theme=theme)
 
     # Create two subplots stacked vertically
-    # Adjust height ratios to fit 9:16 better
     gs = fig.add_gridspec(2, 1, height_ratios=[1, 1], hspace=0.25)
-    ax1 = fig.add_subplot(gs[0])  # Strength
-    ax2 = fig.add_subplot(gs[1], sharex=ax1)  # Volume
+    ax1 = fig.add_subplot(gs[0])  # Top plot
+    ax2 = fig.add_subplot(gs[1], sharex=ax1)  # Bottom plot
 
     # Get theme colors
     colors = get_color_palette('dark', mode=theme)
-    strength_color = colors[0]  # Blue
     volume_color = colors[2]     # Yellow
+    rep_color = colors[0]        # Blue
     text_color = '#e0e0e0' if theme == 'dark' else '#2b2b2b'
+    hypertrophy_zone_color = '#FFD700'  # Gold
 
-    # === TOP PLOT: STRENGTH ===
-    ax1.plot(
-        df_strength['date'],
-        df_strength['estimated_1rm'],
-        marker='o',
-        markersize=12,
-        linewidth=3,
-        color=strength_color,
-        label='Estimated 1RM',
-        markeredgecolor=text_color,
-        markeredgewidth=1.2
-    )
+    if mode == 'hypertrophy':
+        # === HYPERTROPHY MODE: VOLUME + REP RANGE ===
 
-    # Add statistical annotations for strength
-    if show_statistics and len(df_strength) >= 2:
-        avg_1rm = df_strength['estimated_1rm'].mean()
-        start_1rm = df_strength['estimated_1rm'].iloc[0]
-        end_1rm = df_strength['estimated_1rm'].iloc[-1]
-        improvement = end_1rm - start_1rm
-        pct_improvement = (improvement / start_1rm) * 100 if start_1rm > 0 else 0
-
-        stats_text = f'Avg: {avg_1rm:.1f} kg | Change: {improvement:+.1f} kg ({pct_improvement:+.1f}%)'
-
-        ax1.text(
-            0.5, 0.95,
-            stats_text,
-            transform=ax1.transAxes,
-            fontsize=12,
-            verticalalignment='top',
-            horizontalalignment='center',
-            bbox=dict(
-                boxstyle='round,pad=0.5',
-                facecolor='#3a3a3a' if theme == 'dark' else '#f0f0f0',
-                edgecolor=strength_color,
-                linewidth=2,
-                alpha=0.95
-            ),
-            color=text_color,
-            fontweight='bold'
+        # === TOP PLOT: VOLUME ===
+        ax1.bar(
+            volume_series.index,
+            volume_series.values,
+            color=volume_color,
+            alpha=0.85,
+            edgecolor=text_color,
+            linewidth=1.5
         )
 
-    apply_academic_style(ax1, theme=theme)
-    ax1.set_ylabel('Estimated 1RM (kg)', fontsize=15, fontweight='bold')
-    ax1.set_title(
-        title if title else f'{exercise} - Strength & Volume',
-        fontsize=18,
-        fontweight='bold',
-        pad=15
-    )
-    ax1.tick_params(labelbottom=False)  # Hide x labels on top plot
+        # Add statistical annotations for volume
+        if show_statistics and len(volume_series) >= 2:
+            avg_volume = volume_series.mean()
+            total_volume = volume_series.sum()
+            start_volume = volume_series.iloc[0]
+            end_volume = volume_series.iloc[-1]
+            volume_change = end_volume - start_volume
+            pct_change = (volume_change / start_volume) * 100 if start_volume > 0 else 0
 
-    # === BOTTOM PLOT: VOLUME ===
-    ax2.bar(
-        volume_series.index,
-        volume_series.values,
-        color=volume_color,
-        alpha=0.85,
-        edgecolor=text_color,
-        linewidth=1.5
-    )
+            stats_text = f'Avg: {avg_volume:.0f} kg | Total: {total_volume:.0f} kg | Change: {pct_change:+.1f}%'
 
-    # Add statistical annotations for volume
-    if show_statistics and len(volume_series) >= 2:
-        avg_volume = volume_series.mean()
-        total_volume = volume_series.sum()
-        start_volume = volume_series.iloc[0]
-        end_volume = volume_series.iloc[-1]
-        volume_change = end_volume - start_volume
-        pct_change = (volume_change / start_volume) * 100 if start_volume > 0 else 0
+            ax1.text(
+                0.5, 0.95,
+                stats_text,
+                transform=ax1.transAxes,
+                fontsize=12,
+                verticalalignment='top',
+                horizontalalignment='center',
+                bbox=dict(
+                    boxstyle='round,pad=0.5',
+                    facecolor='#3a3a3a' if theme == 'dark' else '#f0f0f0',
+                    edgecolor=volume_color,
+                    linewidth=2,
+                    alpha=0.95
+                ),
+                color=text_color,
+                fontweight='bold'
+            )
 
-        stats_text = f'Avg: {avg_volume:.0f} kg | Total: {total_volume:.0f} kg | Change: {pct_change:+.1f}%'
+        apply_academic_style(ax1, theme=theme)
+        ax1.set_ylabel('Volume (kg)', fontsize=15, fontweight='bold')
+        ax1.set_title(
+            title if title else f'{exercise} - Volume & Hypertrophy',
+            fontsize=18,
+            fontweight='bold',
+            pad=15
+        )
+        ax1.tick_params(labelbottom=False)
 
-        ax2.text(
-            0.5, 0.95,
-            stats_text,
-            transform=ax2.transAxes,
-            fontsize=12,
-            verticalalignment='top',
-            horizontalalignment='center',
-            bbox=dict(
-                boxstyle='round,pad=0.5',
-                facecolor='#3a3a3a' if theme == 'dark' else '#f0f0f0',
-                edgecolor=volume_color,
-                linewidth=2,
-                alpha=0.95
-            ),
-            color=text_color,
-            fontweight='bold'
+        # === BOTTOM PLOT: REP PROGRESSION ===
+        # Plot average reps per workout
+        ax2.plot(
+            rep_progression.index,
+            rep_progression.values,
+            marker='o',
+            markersize=12,
+            linewidth=3,
+            color=rep_color,
+            markeredgecolor=text_color,
+            markeredgewidth=1.2
         )
 
-    apply_academic_style(ax2, theme=theme)
+        # Highlight hypertrophy zone (8-12 reps)
+        ax2.axhspan(8, 12, alpha=0.15, color=hypertrophy_zone_color, zorder=0)
+
+        # Add horizontal lines for zone boundaries
+        ax2.axhline(8, linestyle='--', linewidth=1.5, color=hypertrophy_zone_color, alpha=0.5, label='Hypertrophy Zone')
+        ax2.axhline(12, linestyle='--', linewidth=1.5, color=hypertrophy_zone_color, alpha=0.5)
+
+        # Add statistical annotations for rep range
+        if show_statistics and len(rep_progression) >= 2:
+            avg_reps = rep_progression.mean()
+            total_sets = len(df)
+            hypertrophy_sets = len(df[(df['reps'] >= 8) & (df['reps'] <= 12)])
+            hypertrophy_pct = (hypertrophy_sets / total_sets) * 100 if total_sets > 0 else 0
+
+            stats_text = f'Avg reps: {avg_reps:.1f} | In zone: {hypertrophy_pct:.1f}%'
+
+            ax2.text(
+                0.5, 0.95,
+                stats_text,
+                transform=ax2.transAxes,
+                fontsize=12,
+                verticalalignment='top',
+                horizontalalignment='center',
+                bbox=dict(
+                    boxstyle='round,pad=0.5',
+                    facecolor='#3a3a3a' if theme == 'dark' else '#f0f0f0',
+                    edgecolor=hypertrophy_zone_color,
+                    linewidth=2,
+                    alpha=0.95
+                ),
+                color=text_color,
+                fontweight='bold'
+            )
+
+        apply_academic_style(ax2, theme=theme)
+        ax2.set_ylabel('Average Reps', fontsize=15, fontweight='bold')
+        ax2.legend(loc='upper left', fontsize=11, framealpha=0.95)
+
+    else:
+        # === POWERLIFTING MODE: 1RM + VOLUME ===
+        # Calculate strength data
+        df['estimated_1rm'] = df.apply(
+            lambda row: calculate_1rm(row['weight'], row['reps']),
+            axis=1
+        )
+        df_strength = df.groupby('date').agg({
+            'estimated_1rm': 'max',
+            'weight': 'max'
+        }).reset_index()
+
+        # === TOP PLOT: STRENGTH ===
+        ax1.plot(
+            df_strength['date'],
+            df_strength['estimated_1rm'],
+            marker='o',
+            markersize=12,
+            linewidth=3,
+            color=rep_color,
+            label='Estimated 1RM',
+            markeredgecolor=text_color,
+            markeredgewidth=1.2
+        )
+
+        if show_statistics and len(df_strength) >= 2:
+            avg_1rm = df_strength['estimated_1rm'].mean()
+            start_1rm = df_strength['estimated_1rm'].iloc[0]
+            end_1rm = df_strength['estimated_1rm'].iloc[-1]
+            improvement = end_1rm - start_1rm
+            pct_improvement = (improvement / start_1rm) * 100 if start_1rm > 0 else 0
+
+            stats_text = f'Avg: {avg_1rm:.1f} kg | Change: {improvement:+.1f} kg ({pct_improvement:+.1f}%)'
+
+            ax1.text(
+                0.5, 0.95,
+                stats_text,
+                transform=ax1.transAxes,
+                fontsize=12,
+                verticalalignment='top',
+                horizontalalignment='center',
+                bbox=dict(
+                    boxstyle='round,pad=0.5',
+                    facecolor='#3a3a3a' if theme == 'dark' else '#f0f0f0',
+                    edgecolor=rep_color,
+                    linewidth=2,
+                    alpha=0.95
+                ),
+                color=text_color,
+                fontweight='bold'
+            )
+
+        apply_academic_style(ax1, theme=theme)
+        ax1.set_ylabel('Estimated 1RM (kg)', fontsize=15, fontweight='bold')
+        ax1.set_title(
+            title if title else f'{exercise} - Strength & Volume',
+            fontsize=18,
+            fontweight='bold',
+            pad=15
+        )
+        ax1.tick_params(labelbottom=False)
+
+        # === BOTTOM PLOT: VOLUME ===
+        ax2.bar(
+            volume_series.index,
+            volume_series.values,
+            color=volume_color,
+            alpha=0.85,
+            edgecolor=text_color,
+            linewidth=1.5
+        )
+
+        if show_statistics and len(volume_series) >= 2:
+            avg_volume = volume_series.mean()
+            total_volume = volume_series.sum()
+            start_volume = volume_series.iloc[0]
+            end_volume = volume_series.iloc[-1]
+            volume_change = end_volume - start_volume
+            pct_change = (volume_change / start_volume) * 100 if start_volume > 0 else 0
+
+            stats_text = f'Avg: {avg_volume:.0f} kg | Total: {total_volume:.0f} kg | Change: {pct_change:+.1f}%'
+
+            ax2.text(
+                0.5, 0.95,
+                stats_text,
+                transform=ax2.transAxes,
+                fontsize=12,
+                verticalalignment='top',
+                horizontalalignment='center',
+                bbox=dict(
+                    boxstyle='round,pad=0.5',
+                    facecolor='#3a3a3a' if theme == 'dark' else '#f0f0f0',
+                    edgecolor=volume_color,
+                    linewidth=2,
+                    alpha=0.95
+                ),
+                color=text_color,
+                fontweight='bold'
+            )
+
+        apply_academic_style(ax2, theme=theme)
+        ax2.set_ylabel('Volume (kg)', fontsize=15, fontweight='bold')
+
+    # Format x-axis dates (common for both modes)
     ax2.set_xlabel('Date', fontsize=15, fontweight='bold')
-    ax2.set_ylabel('Volume (kg)', fontsize=15, fontweight='bold')
-
-    # Format x-axis dates (only on bottom plot)
     ax2.xaxis.set_major_formatter(mdates.DateFormatter('%b %d'))
     ax2.xaxis.set_major_locator(mdates.AutoDateLocator())
     fig.autofmt_xdate()
