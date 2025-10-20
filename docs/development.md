@@ -2,10 +2,177 @@
 
 ## 🎯 Current Development Focus
 
-**Current Phase**: Smart Date Detection for Workout Logs
-**Status**: Directory structure created, now implementing intelligent date inference
+**Current Phase**: Hypertrophy-Focused Visualization & Analysis
+**Status**: Dark theme complete, now shifting focus from strength (1RM) to hypertrophy metrics
 
-**Goal**: Automatic date detection from multiple sources with smart year inference and user-friendly conflict resolution
+**Goal**: Reorient visualizations and analysis to prioritize hypertrophy (muscle growth) over powerlifting (1RM), with progressive overload predictions
+
+---
+
+## Planned: Hypertrophy-Focused Improvements
+
+**Branch**: `feat/hypertrophy-focus` (to be created)
+**Priority**: HIGH - Core user goal is muscle growth, not 1RM maximization
+
+### Problem Statement
+
+**Current State**: Visualizations heavily emphasize 1RM calculations
+- Charts focus on estimated 1RM progression
+- Analysis treats strength like powerlifting training
+- Missing key hypertrophy metrics (volume, rep ranges, TUT)
+
+**User Reality**: Training for hypertrophy (muscle growth), NOT 1RM strength
+- Goal: Build muscle mass, not compete in powerlifting
+- 1RM is a **secondary metric**, not primary focus
+- Need volume, rep ranges, progressive overload for hypertrophy
+
+### Proposed Changes
+
+#### 1. **Primary Metrics Shift**
+
+**OLD (Powerlifting Focus)**:
+- Primary: Estimated 1RM
+- Secondary: Volume
+
+**NEW (Hypertrophy Focus)**:
+- **Primary: Total Volume** (sets × reps × weight)
+- **Primary: Rep Range Distribution** (8-12 reps optimal for hypertrophy)
+- **Primary: Progressive Overload Tracking** (volume increases over time)
+- Secondary: Estimated 1RM (still useful, but not main focus)
+
+#### 2. **New Visualization: Hypertrophy Dashboard**
+
+**Combined Chart Components**:
+- Top panel: **Volume progression** (primary metric)
+- Middle panel: **Rep range heatmap** (8-12 optimal, color-coded)
+- Bottom panel: **Progressive overload indicators** (volume +5-10% weekly)
+- Optional: Estimated 1RM trend (smaller, de-emphasized)
+
+#### 3. **Progressive Overload Predictions**
+
+**Visual Design**:
+- Dashed/dotted line extending beyond last workout
+- Gold/yellow color for target
+- Shows recommended next workout based on progressive overload principles
+
+**Hypertrophy Prediction Logic**:
+```python
+def predict_next_hypertrophy_workout(last_workout):
+    """
+    Progressive overload for hypertrophy:
+    - If reps < 12: add 1-2 reps
+    - If reps >= 12: add 2.5-5kg, drop to 8 reps
+    - Target: 5-10% volume increase per week
+    """
+    if last_workout.avg_reps < 12:
+        # Increase reps, same weight
+        return {
+            'weight': last_workout.weight,
+            'reps': last_workout.avg_reps + 2,
+            'sets': last_workout.sets,
+            'target_volume': last_workout.volume * 1.05
+        }
+    else:
+        # Increase weight, reset to 8-10 reps
+        return {
+            'weight': last_workout.weight + 2.5,
+            'reps': 8,
+            'sets': last_workout.sets,
+            'target_volume': last_workout.volume * 1.05
+        }
+```
+
+**Visual Implementation**:
+- Prediction line from last data point to next workout date
+- Dotted line style, gold color (#FFD700)
+- Diamond marker at predicted point
+- Annotation: "Target: 75kg × 10 reps (3 sets)"
+- Confidence band showing acceptable range
+
+#### 4. **Rep Range Analysis**
+
+**New Visualization: Rep Range Heatmap**
+- X-axis: Workout dates
+- Y-axis: Rep ranges (1-5, 6-7, 8-12, 13-15, 16+)
+- Color intensity: Number of sets in each range
+- Highlight 8-12 range (optimal for hypertrophy)
+
+**Metrics to Track**:
+- % of sets in 8-12 rep range (target: >70%)
+- Average reps per exercise over time
+- Rep range drift detection (are you going too heavy/light?)
+
+#### 5. **Volume-Centric Combined Chart**
+
+**Replace current combined chart**:
+- **Top (60% space)**: Volume progression with prediction
+- **Bottom (40% space)**: Rep range distribution
+
+**Remove or de-emphasize**:
+- 1RM chart (move to secondary/optional view)
+- Strength focus (not the primary goal)
+
+#### 6. **CLI Updates**
+
+**New default behavior**:
+```bash
+# Default: hypertrophy-focused volume chart
+python -m cli.gym_cli visualize -e "Smith Squat"
+# → Shows volume progression, NOT 1RM
+
+# Opt-in for 1RM (powerlifting mode)
+python -m cli.gym_cli visualize -e "Smith Squat" --mode powerlifting
+# → Shows 1RM progression
+
+# Combined hypertrophy dashboard
+python -m cli.gym_cli visualize -e "Smith Squat" -m hypertrophy
+# → Volume + rep range + predictions
+```
+
+**New metric option**:
+```bash
+--metric [volume|hypertrophy|strength|combined]
+  volume: Total volume progression (DEFAULT for hypertrophy)
+  hypertrophy: Volume + rep range + predictions
+  strength: Estimated 1RM (for powerlifting)
+  combined: All metrics
+```
+
+#### 7. **Statistical Annotations for Hypertrophy**
+
+**Replace 1RM stats with**:
+- **Total volume**: "Total: 12,450 kg"
+- **Volume change**: "+850 kg (+7.3%)"
+- **Rep range distribution**: "72% in 8-12 range"
+- **Progressive overload**: "✓ Volume +6.2% weekly"
+- **Next target**: "Target: +450kg next session"
+
+### Implementation Tasks
+
+- [ ] Create `feat/hypertrophy-focus` branch
+- [ ] Update default metric from 'strength' to 'volume' in CLI
+- [ ] Redesign combined chart: volume + rep range (not 1RM + volume)
+- [ ] Implement rep range heatmap visualization
+- [ ] Add progressive overload prediction algorithm
+- [ ] Add prediction visualization (dashed line + target marker)
+- [ ] Update statistical annotations for hypertrophy metrics
+- [ ] Add `--mode` flag: hypertrophy (default) vs powerlifting
+- [ ] Update all chart titles/labels to reflect hypertrophy focus
+- [ ] Update documentation and examples
+
+### Design Philosophy
+
+**Key Principle**: 1RM is a **tool**, not the **goal**
+- 1RM helps estimate load, but volume drives hypertrophy
+- Most gym-goers (98%) train for aesthetics/health, not powerlifting
+- Charts should reflect real training goals, not academic metrics
+
+---
+
+## Previous: Smart Date Detection (On Hold)
+
+**Branch**: `feat/smart-date-detection`
+**Status**: Design phase (deprioritized for hypertrophy focus)
 
 ---
 
