@@ -45,14 +45,25 @@ A professional gym records analysis tool designed to track workout progression w
 gym-record/
 ├── src/
 │   ├── data/          # Data loading and processing modules
+│   │   └── loader.py  # CSV loading, filtering, validation
 │   ├── analysis/      # Statistical analysis and metrics
+│   │   └── metrics.py # 1RM, volume, trends, progressive overload
 │   └── visualization/ # Graph generation and styling
-├── cli/               # Command-line interface
-├── data/              # Sample workout data and datasets
-├── output/            # Generated .png visualizations
+│       ├── styling.py # 9:16 aspect ratio, academic themes
+│       └── charts.py  # Strength, volume, comparison charts
+├── cli/
+│   └── gym_cli.py     # CLI commands (visualize, analyze, compare)
+├── tests/
+│   ├── unit/          # Unit tests (73 tests)
+│   └── integration/   # Integration tests (13 tests)
+├── data/              # Workout data (CSV files, git-ignored except samples)
+├── output/            # Generated .png visualizations (git-ignored)
+├── docs/
+│   └── development.md # Current development priorities
 ├── requirements.txt   # Python dependencies
-├── claude.md          # This file - architecture guidance
-└── .gitignore        # Git exclusions
+├── pytest.ini         # Test configuration
+├── CLAUDE.md          # This file - architecture guidance
+└── .gitignore         # Git exclusions
 ```
 
 ### Environment Setup
