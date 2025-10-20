@@ -37,6 +37,51 @@ from src.analysis.metrics import (
 )
 
 
+def _display_image_with_chafa(image_path: str):
+    """
+    Display image in terminal using chafa.
+
+    Falls back gracefully if chafa is not installed.
+    """
+    import subprocess
+    import shutil
+
+    # Check if chafa is installed
+    if not shutil.which('chafa'):
+        click.secho("\n💡 Tip: Install chafa to preview images in terminal", fg='yellow')
+        click.echo("   brew install chafa  # macOS")
+        click.echo("   sudo apt install chafa  # Ubuntu/Debian")
+        click.echo("   Use --no-show to disable this message")
+        return
+
+    try:
+        # Get terminal size for optimal display
+        import os
+        try:
+            terminal_height = os.get_terminal_size().lines - 5  # Leave some space for text
+        except OSError:
+            # Not a TTY (e.g., piped output), use default size
+            terminal_height = 40
+
+        # Run chafa with options optimized for visualization preview
+        subprocess.run([
+            'chafa',
+            '--size', f'60x{terminal_height}',  # Fit to terminal width
+            '--format', 'symbols',  # Use symbols for better quality
+            '--dither', 'none',  # No dithering for charts
+            str(image_path)
+        ], check=True)
+
+        click.echo()  # Add newline after image
+
+    except subprocess.CalledProcessError:
+        # chafa failed, silently continue
+        pass
+    except Exception:
+        # Other errors, silently continue (don't show error in non-interactive mode)
+        pass
+
+
 @click.group()
 @click.version_option(version='0.1.0')
 def cli():
@@ -172,7 +217,8 @@ def format(input, output, date, dry_run, json_output, detailed, validate):
 @click.option('--theme', '-t', type=click.Choice(['dark', 'light']), default='dark', help='Color theme (default: dark for night viewing)')
 @click.option('--no-stats', is_flag=True, help='Disable statistical annotations')
 @click.option('--no-records', is_flag=True, help='Disable personal record markers (strength charts only)')
-def visualize(exercise, metric, output, period, data, theme, no_stats, no_records):
+@click.option('--show/--no-show', default=True, help='Display image in terminal using chafa (default: True)')
+def visualize(exercise, metric, output, period, data, theme, no_stats, no_records, show):
     """Generate visualization graphs for workout progression
 
     Examples:
@@ -267,6 +313,10 @@ def visualize(exercise, metric, output, period, data, theme, no_stats, no_record
         # Close figure
         import matplotlib.pyplot as plt
         plt.close(fig)
+
+        # Display image in terminal using chafa if requested and available
+        if show:
+            _display_image_with_chafa(output)
 
     except Exception as e:
         click.secho(f"✗ Error: {str(e)}", fg='red')
@@ -372,7 +422,8 @@ def analyze(focus, period, data):
 @click.option('--output', '-o', type=click.Path(), help='Output file path')
 @click.option('--data', '-d', default='data/sample_workout.csv', help='Path to workout data CSV')
 @click.option('--theme', '-t', type=click.Choice(['dark', 'light']), default='dark', help='Color theme (default: dark for night viewing)')
-def compare(exercises, metric, output, data, theme):
+@click.option('--show/--no-show', default=True, help='Display image in terminal using chafa (default: True)')
+def compare(exercises, metric, output, data, theme, show):
     """Compare progression across multiple exercises"""
     try:
         # Parse exercise list
@@ -407,6 +458,10 @@ def compare(exercises, metric, output, data, theme):
         # Close figure
         import matplotlib.pyplot as plt
         plt.close(fig)
+
+        # Display image in terminal using chafa if requested and available
+        if show:
+            _display_image_with_chafa(output)
 
     except Exception as e:
         click.secho(f"✗ Error: {str(e)}", fg='red')
