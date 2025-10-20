@@ -150,3 +150,25 @@ def bench_press_data():
     df = pd.DataFrame(data)
     df['date'] = pd.to_datetime(df['date'])
     return df
+
+
+@pytest.fixture
+def progressive_squat_data():
+    """
+    Fixture providing squat data with clear progressive overload.
+
+    Returns:
+        pd.DataFrame: Progressive squat workout data
+    """
+    data = {
+        'date': ['2024-01-01', '2024-01-08', '2024-01-15', '2024-01-22'],
+        'exercise': ['Squat'] * 4,
+        'sets': [3, 3, 3, 4],
+        'reps': [10, 10, 10, 10],
+        'weight': [100, 105, 110, 110],
+        'rpe': [8.0, 8.5, 9.0, 8.5],
+        'notes': ['', 'Added weight', 'New PR', 'Added volume']
+    }
+    df = pd.DataFrame(data)
+    df['date'] = pd.to_datetime(df['date'])
+    return df
