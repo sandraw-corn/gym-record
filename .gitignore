@@ -72,6 +72,11 @@ api_generated/
 test_cli_concurrent/
 test_output_concurrent/
 
+# Personal workout data (keep sample data for testing)
+data/*
+!data/sample_workout.csv
+!data/.gitkeep
+
 # Database files and development artifacts
 *.db
 *.sqlite
