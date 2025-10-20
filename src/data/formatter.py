@@ -349,6 +349,12 @@ Output ONLY the JSON array:"""
         for exercise in data:
             # Expand each exercise into individual set rows
             for set_num in range(exercise['sets']):
+                # Handle rest_times safely - may be shorter than sets count
+                rest_time = None
+                if exercise.get('rest_times') and isinstance(exercise['rest_times'], list):
+                    if set_num < len(exercise['rest_times']):
+                        rest_time = exercise['rest_times'][set_num]
+
                 row = {
                     'date': exercise['date'],
                     'exercise': exercise['exercise'],
@@ -357,10 +363,51 @@ Output ONLY the JSON array:"""
                     'weight': exercise['weight'],
                     'unit': exercise.get('unit', 'kg'),
                     'rpe': exercise.get('rpe'),
-                    'rest_time': exercise.get('rest_times', [None] * exercise['sets'])[set_num] if exercise.get('rest_times') else None,
+                    'rest_time': rest_time,
                     'notes': exercise.get('notes')
                 }
                 rows.append(row)
+
+        return rows
+
+    def format_to_csv_aggregated(self, data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Convert formatted JSON to aggregated CSV format (compatible with main branch)
+
+        This format matches the schema expected by WorkoutDataLoader:
+        date, exercise, sets, reps, weight, rpe, notes
+
+        One row per exercise (not per set). If reps vary across sets, uses the average.
+
+        Args:
+            data: List of exercise dicts from format_log()
+
+        Returns:
+            List of dicts ready for CSV export (one row per exercise)
+        """
+        rows = []
+
+        for exercise in data:
+            # Calculate average reps if they vary
+            reps_list = exercise['reps']
+            avg_reps = sum(reps_list) / len(reps_list) if reps_list else 0
+
+            # Use integer if all reps are the same, otherwise use average
+            if len(set(reps_list)) == 1:
+                reps_value = reps_list[0]
+            else:
+                reps_value = int(round(avg_reps))
+
+            row = {
+                'date': exercise['date'],
+                'exercise': exercise['exercise'],
+                'sets': exercise['sets'],
+                'reps': reps_value,
+                'weight': exercise['weight'],
+                'rpe': exercise.get('rpe', ''),  # Empty string instead of None for CSV
+                'notes': exercise.get('notes', '')
+            }
+            rows.append(row)
 
         return rows
 
