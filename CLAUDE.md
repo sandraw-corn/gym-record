@@ -106,20 +106,58 @@ source ~/.zshrc && conda activate gym-record && python -m cli.gym_cli format --i
 # Preview formatting without saving (dry-run mode)
 source ~/.zshrc && conda activate gym-record && python -m cli.gym_cli format --input data/raw_log.txt --date 2024-01-20 --dry-run
 
-# Generate strength progression chart
-source ~/.zshrc && conda activate gym-record && python -m cli.gym_cli visualize --exercise "Bench Press" --metric strength --output output/bench_strength.png
-
-# Analyze volume progression
-source ~/.zshrc && conda activate gym-record && python -m cli.gym_cli visualize --exercise "Squat" --metric volume --period 12weeks
-
-# Compare multiple exercises
-source ~/.zshrc && conda activate gym-record && python -m cli.gym_cli compare --exercises "Bench Press,Squat,Deadlift" --metric strength
+# List available data
+source ~/.zshrc && conda activate gym-record && python -m cli.gym_cli list-data
 
 # Generate hypertrophy analysis
 source ~/.zshrc && conda activate gym-record && python -m cli.gym_cli analyze --focus hypertrophy --period 8weeks
+```
 
-# List available data
-source ~/.zshrc && conda activate gym-record && python -m cli.gym_cli list-data
+### Visualization Commands (Hypertrophy Focus)
+
+**IMPORTANT**: Default metric is `volume` (not strength) for hypertrophy training. All charts use dark theme by default for night viewing.
+
+**Complete Visualization Set for Any Exercise**:
+```bash
+# Replace "Leg Press" with your exercise name
+EXERCISE="Leg Press"
+DATA="data/all_workouts.csv"
+
+# 1. Volume tracking with progressive overload prediction (sets × reps @ weight format)
+source ~/.zshrc && conda activate gym-record && python -m cli.gym_cli visualize -e "$EXERCISE" -m volume -d $DATA -o output/${EXERCISE// /_}_volume_dark.png
+
+# 2. Strength progression with 1RM prediction and PR markers
+source ~/.zshrc && conda activate gym-record && python -m cli.gym_cli visualize -e "$EXERCISE" -m strength -d $DATA -o output/${EXERCISE// /_}_strength_dark.png
+
+# 3. Rep range heatmap (shows exercise-specific hypertrophy zone)
+source ~/.zshrc && conda activate gym-record && python -m cli.gym_cli visualize -e "$EXERCISE" -m rep_range -d $DATA -o output/${EXERCISE// /_}_rep_range_dark.png
+
+# 4. Combined hypertrophy chart (volume + rep progression with zone highlighting)
+source ~/.zshrc && conda activate gym-record && python -m cli.gym_cli visualize -e "$EXERCISE" -m combined -d $DATA -o output/${EXERCISE// /_}_hypertrophy_dark.png
+```
+
+**Quick Examples - Single Exercise**:
+```bash
+# Volume chart (default - hypertrophy focus)
+source ~/.zshrc && conda activate gym-record && python -m cli.gym_cli visualize -e "Smith Squat" -d data/all_workouts.csv
+
+# Strength progression with predictions
+source ~/.zshrc && conda activate gym-record && python -m cli.gym_cli visualize -e "Hip Thrust" -m strength -d data/all_workouts.csv
+
+# Rep range analysis for hypertrophy zone
+source ~/.zshrc && conda activate gym-record && python -m cli.gym_cli visualize -e "Leg Press" -m rep_range -d data/all_workouts.csv
+
+# Combined volume + rep progression
+source ~/.zshrc && conda activate gym-record && python -m cli.gym_cli visualize -e "Smith Squat" -m combined -d data/all_workouts.csv
+```
+
+**Comparison Charts**:
+```bash
+# Compare volume across multiple exercises
+source ~/.zshrc && conda activate gym-record && python -m cli.gym_cli compare -e "Smith Squat,Hip Thrust,Leg Press" -m volume -d data/all_workouts.csv
+
+# Compare strength progression
+source ~/.zshrc && conda activate gym-record && python -m cli.gym_cli compare -e "Smith Squat,Hip Thrust,Leg Press" -m strength -d data/all_workouts.csv
 ```
 
 ### Visualization Specifications
@@ -127,30 +165,86 @@ source ~/.zshrc && conda activate gym-record && python -m cli.gym_cli list-data
 **9:16 Aspect Ratio Configuration**:
 ```python
 # Standard TikTok size: 1080x1920 pixels
-# For high-quality: 1440x2560 pixels (1.5x)
-# Figsize calculation: width=9, height=16 inches with DPI=120-180
+# For high-quality: 2880x5120 pixels (actual output, DPI=160)
+# Figsize calculation: width=9, height=16 inches with DPI=160
 
 import matplotlib.pyplot as plt
 fig, ax = plt.subplots(figsize=(9, 16), dpi=160)
 ```
 
+**Theme Configuration**:
+- **Dark theme** (default): OLED-optimized (#1a1a1a background) for night viewing
+- **Light theme** (opt-in): For daytime viewing or printing
+- High-contrast text and colors for mobile readability
+- Larger fonts (13-20pt) and markers (12-14px) for vertical format
+
 **Academic Style Requirements**:
 - Clean, minimalist design with high contrast
-- Grid lines for readability
+- Grid lines for readability (#404040 for dark theme)
 - Clear axis labels with units
 - Professional color schemes (not flashy)
 - Proper legends and annotations
 - Citation-quality fonts and sizing
-- Statistical indicators (confidence intervals, trend lines)
+- Statistical indicators (avg, % change, trends)
 
-**Graph Types to Support**:
-1. **Strength Progression**: Line charts with trend analysis
-2. **Volume Tracking**: Bar charts or area plots over time
-3. **1RM Estimation**: Calculated max strength with confidence intervals
-4. **Exercise Comparison**: Multi-line plots or grouped bars
-5. **Periodization Analysis**: Phase-based breakdown with annotations
-6. **Rep Range Distribution**: Histograms or heatmaps
-7. **Progressive Overload**: Cumulative volume or intensity charts
+**Available Metrics**:
+1. **`volume`** (default): Total volume tracking with progressive overload prediction
+   - Shows sets × reps @ weight format for next workout goal
+   - Bar chart visualization
+   - Statistical annotations: avg, total, % change
+   - Prediction: suggests +2.5kg weight increase
+
+2. **`strength`**: 1RM progression with trend analysis
+   - Estimated 1RM using Epley formula
+   - PR markers (gold stars) for personal records
+   - Trend line (gray dashed)
+   - Progressive overload prediction (gold dotted line)
+   - Missing workout indicators (red "?" for gaps >10 days)
+
+3. **`rep_range`**: Rep distribution analysis
+   - Bar chart showing set count per rep range
+   - Exercise-specific hypertrophy zone highlighted (gold)
+   - Statistics: total sets, % in hypertrophy zone, avg reps
+
+4. **`combined`**: Hypertrophy-focused dual chart
+   - Top: Volume progression (bar chart)
+   - Bottom: Rep progression with hypertrophy zone (line chart)
+   - Zone boundaries shown with gold dashed lines
+   - Statistics on both panels
+
+**Exercise-Specific Hypertrophy Zones**:
+```python
+# Configured in src/visualization/charts.py
+HYPERTROPHY_ZONES = {
+    'smith squat': (6, 10),   # Lower reps for heavy compound
+    'squat': (6, 10),
+    'deadlift': (5, 8),       # Lower for maximal loading
+    'bench press': (6, 10),
+    'hip thrust': (8, 12),    # Standard hypertrophy zone
+    'leg press': (8, 12),
+    'default': (8, 12)        # For all other exercises
+}
+```
+
+**Progressive Overload Predictions**:
+- **Volume charts**: "Goal: X sets × Y reps @ Z kg"
+  - Analyzes last workout's parameters
+  - Suggests +2.5kg weight increase
+  - Maintains similar reps and sets
+  - Gold dotted line from last point to prediction
+  - Diamond marker at target
+
+- **Strength charts**: "Goal: XXX.X kg" (1RM)
+  - Linear regression-based projection
+  - 7 days ahead from last workout
+  - Gold dotted line to prediction
+  - Diamond marker at target
+
+**Missing Workout Indicators**:
+- Red question mark "?" appears when gap >10 days between workouts
+- Marks the last known data point
+- Helps identify detraining periods
+- Applied to strength and line/area volume charts
 
 ### Import Conventions
 
