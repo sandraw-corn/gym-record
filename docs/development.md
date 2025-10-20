@@ -2,19 +2,95 @@
 
 ## 🎯 Current Development Focus
 
-**Current Phase**: Visualization Enhancement & Dark Mode
-**Status**: Core foundation complete (PR #1 merged), now improving charts for better social media presentation
+**Current Phase**: Smart Date Detection for Workout Logs
+**Status**: Directory structure created, now implementing intelligent date inference
 
-**Goal**: Optimize visualizations for night viewing with dark themes, larger fonts, better readability, and more in-depth composed analysis
+**Goal**: Automatic date detection from multiple sources with smart year inference and user-friendly conflict resolution
 
 ---
 
-## Active Development: Visualization Improvements
+## Active Development: Smart Date Detection
 
-**Branch**: TBD (to be created)
-**Status**: Planning phase
+**Branch**: `feat/smart-date-detection`
+**Status**: Design phase
 
-### Priority Improvements
+### Implementation Plan
+
+**Date Priority System** (with conflict resolution):
+- [ ] Priority 1: `--date` flag (explicit user override)
+  - If conflicts with filename/note → warn user
+- [ ] Priority 2: Filename parsing (e.g., `2024-10-14.txt`)
+  - Extract date from filename using regex
+  - Validate date format
+- [ ] Priority 3: Note content extraction (LLM-based)
+  - Parse Chinese date patterns: "10月14日", "2024年10月14日"
+  - Smart year inference (default to 2025/current year)
+  - Detect future dates and suggest previous year
+- [ ] Priority 4: No date found → ERROR (fail safely)
+
+**Year Auto-Detection**:
+- [ ] Default to current year (2025) for "10月14日" format
+- [ ] Parse explicit years: "2024年10月14日" → 2024
+- [ ] Smart future date detection (if >30 days future → suggest previous year)
+- [ ] Handle edge case: December workout logged in January
+
+**Mismatch Handling** (CRITICAL):
+- [ ] Detect filename vs note content mismatch
+- [ ] **STOP and prompt user** for choice (never auto-pick)
+- [ ] Interactive menu:
+  - [1] Use filename date
+  - [2] Use note content date
+  - [3] Specify manually
+  - [q] Quit and fix manually
+- [ ] Log chosen date and source for audit trail
+
+**Implementation Details**:
+- [ ] Add `extract_date_from_filename()` helper
+- [ ] Update LLM prompt with explicit Chinese date patterns
+- [ ] Add `resolve_date_conflict()` interactive resolver
+- [ ] Update CLI help text to explain date priority
+- [ ] Add validation warnings (don't silently proceed on ambiguity)
+
+**Testing**:
+- [ ] Test filename parsing: `2024-10-14.txt`, `2024-10-14_legs.txt`
+- [ ] Test Chinese date extraction: "10月14日", "2024年10月14日"
+- [ ] Test year inference: December date in January
+- [ ] Test conflict resolution: filename ≠ note content
+- [ ] Test error handling: no date found anywhere
+
+---
+
+## Planned Features
+
+### Batch Processing & Workflow Automation
+
+**Branch**: `feat/batch-processing` (future)
+**Goal**: Process multiple workout logs efficiently with tracking
+
+**Features**:
+- [ ] Batch format all files in `data/raw/` that haven't been formatted
+  ```bash
+  python -m cli.gym_cli format --batch
+  ```
+- [ ] Track formatting history to avoid re-formatting
+  - Store manifest: `data/.format_history.json` (git-ignored)
+  - Record: source file, output file, date used, date source, timestamp
+- [ ] Smart output path inference
+  - `data/raw/2024-10-14.txt` → `data/formatted/2024-10-14.csv` (auto)
+- [ ] Dry-run mode for batch: preview all operations before execution
+- [ ] Progress bars for batch operations
+- [ ] Error recovery: continue on failure, report summary at end
+
+**Design Considerations**:
+- Avoid re-formatting already processed files (check manifest)
+- Warn if source file modified after formatting
+- Allow force re-format with `--force` flag
+- Smart date detection applies to each file individually
+
+### Visualization Enhancements
+
+**Branch**: `feat/viz-improvements` (future)
+**Goal**: Dark mode, better readability, richer analysis for social media
 
 **Dark Mode & Styling**:
 - [ ] Implement dark background themes (better for night viewing on mobile)
