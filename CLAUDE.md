@@ -64,7 +64,8 @@ gym-record/
 │   └── sample_log.txt     # Sample Chinese workout log
 ├── output/                # Generated .png visualizations (git-ignored)
 ├── docs/
-│   └── development.md     # Current development priorities
+│   ├── development.md     # Current development priorities
+│   └── llm-formatter.md   # LLM formatter detailed guide
 ├── .env.example           # Environment config template (Gemini API)
 ├── requirements.txt       # Python dependencies
 ├── pytest.ini             # Test configuration
@@ -187,69 +188,25 @@ date,exercise,sets,reps,weight,rpe,notes
 
 ### LLM Formatter for Chinese Workout Logs
 
-**Purpose**: Convert messy Chinese training logs into structured CSV format automatically.
+**Purpose**: Convert messy Chinese training logs into structured CSV format using Google Gemini Flash 2.5.
 
-**Setup Requirements**:
-1. Get free Gemini API key at https://aistudio.google.com/apikey
-2. Create `.env` file based on `.env.example`:
-   ```bash
-   cp .env.example .env
-   # Edit .env and add your API key
-   ```
-3. Environment variables:
-   ```
-   GOOGLE_API_KEY=your_actual_api_key
-   GEMINI_MODEL=gemini-2.5-flash
-   GEMINI_TEMPERATURE=0.1
-   GEMINI_MAX_OUTPUT_TOKENS=8192
-   ```
+**Quick Setup**:
+1. Get free API key at https://aistudio.google.com/apikey
+2. Copy `.env.example` to `.env` and add your key
+3. Run: `python -m cli.gym_cli format --input log.txt --date 2024-01-20 --output workout.csv`
 
 **Key Features**:
-- **80+ Exercise Mappings**: 腿弯举 → Leg Curl, 硬拉 → Deadlift, 深蹲 → Squat
-- **Bilateral Exercise Detection**: "先左后右" (left then right) = 1 set, not 2 sets
-- **Content Filtering**: Extracts ONLY training data, ignores diary/emotion content
-- **Dual Output Modes**:
-  - Aggregated (default): One row per exercise, compatible with existing tools
-  - Detailed (`--detailed` flag): One row per set, maximum granularity
+- 80+ exercise mappings (Chinese → English)
+- Bilateral exercise detection ("先左后右" = 1 set, not 2)
+- Auto-validation with smart fixes
+- Dual output modes (aggregated/detailed)
 
-**CRITICAL: Bilateral Exercise Handling**:
-```
-Input (Chinese):  "单边训练凳划船 先左后右 20kg: 11 11, 11 12"
-Meaning:          Single-arm dumbbell row, left then right, 20kg
-                  Set 1: 11 reps left + 11 reps right = 1 bilateral set
-                  Set 2: 11 reps left + 12 reps right = 1 bilateral set
-Output:           2 sets total (NOT 4)
-```
-
-**Processing Pipeline**:
-```
-Raw Chinese Log → Gemini LLM → JSON → Validator (auto-fix) → CSV → Data Loader
-```
-
-**Example Workflow**:
-```bash
-# 1. Format Chinese log
-python -m cli.gym_cli format --input raw_log.txt --date 2024-01-20 --output data/workout.csv
-
-# 2. Visualize formatted data
-python -m cli.gym_cli visualize --exercise "Leg Curl" --data data/workout.csv
-
-# 3. Analyze formatted data
-python -m cli.gym_cli analyze --focus strength --data data/workout.csv
-```
-
-**Validator Auto-Fix Capabilities**:
-- Normalizes units: "lb" → "lbs", ensures consistency
-- Extends rep arrays: If reps=[15] but sets=3, auto-extends to [15,15,15]
-- Validates business rules: reps count matches sets, dates are valid, weights > 0
-- Reports errors with clear messages for manual review
-
-**Important Notes**:
-- **Always specify `--date` explicitly** - don't trust LLM to infer dates correctly
-- **Use `--dry-run` first** to preview JSON output before saving
-- **Temperature=0.1** ensures consistent, deterministic output
-- **Cost**: ~$0.003 per workout log (very cheap, ~120 logs for $0.30)
-- **Speed**: 2-5 seconds per log
+**📖 Detailed Documentation**: See `docs/llm-formatter.md` for:
+- Bilateral exercise handling (critical edge case)
+- Complete exercise mapping dictionary
+- Validator auto-fix capabilities
+- Troubleshooting guide
+- Advanced usage examples
 
 ### Development Workflow
 
@@ -297,6 +254,7 @@ Use `/update-docs` when documentation appears outdated or before creating pull r
 
 ### Documentation Structure
 - `docs/development.md` - **CURRENT PRIORITIES**: Active todos, phase tracking, technical decisions
+- `docs/llm-formatter.md` - **LLM FORMATTER**: Detailed guide for Chinese log processing, prompts, troubleshooting
 - `docs/visualization-guide.md` (future) - Graph specifications, color palettes, examples
 - `docs/troubleshooting.md` (future) - Common issues and solutions
 
