@@ -154,9 +154,15 @@ class TestColorSchemes:
         """Test getting academic color palette."""
         from src.visualization.styling import get_color_palette
 
-        colors = get_color_palette(theme='academic')
+        # Test dark mode palette (default)
+        colors = get_color_palette(palette='dark', mode='dark')
         assert isinstance(colors, list)
         assert len(colors) >= 3  # Should have at least 3 colors
+
+        # Test light mode palette
+        colors_light = get_color_palette(palette='dark', mode='light')
+        assert isinstance(colors_light, list)
+        assert len(colors_light) >= 3  # Should have at least 3 colors
 
     @pytest.mark.unit
     @pytest.mark.visualization

@@ -24,7 +24,8 @@ from src.data.loader import WorkoutDataLoader
 from src.visualization.charts import (
     create_strength_progression_chart,
     create_volume_chart,
-    create_comparison_chart
+    create_comparison_chart,
+    create_combined_metrics_chart
 )
 from src.visualization.styling import save_figure
 from src.analysis.metrics import (
@@ -163,12 +164,26 @@ def format(input, output, date, dry_run, json_output, detailed, validate):
 
 @cli.command()
 @click.option('--exercise', '-e', required=True, help='Exercise name (e.g., "Bench Press")')
-@click.option('--metric', '-m', type=click.Choice(['strength', 'volume', '1rm']), default='strength', help='Metric to visualize')
+@click.option('--metric', '-m', type=click.Choice(['strength', 'volume', '1rm', 'combined']), default='strength', help='Metric to visualize')
 @click.option('--output', '-o', type=click.Path(), help='Output file path')
 @click.option('--period', '-p', default='all', help='Time period (e.g., "12weeks", "3months", "all")')
 @click.option('--data', '-d', default='data/sample_workout.csv', help='Path to workout data CSV')
-def visualize(exercise, metric, output, period, data):
-    """Generate visualization graphs for workout progression"""
+@click.option('--theme', '-t', type=click.Choice(['dark', 'light']), default='dark', help='Color theme (default: dark for night viewing)')
+@click.option('--no-stats', is_flag=True, help='Disable statistical annotations')
+@click.option('--no-records', is_flag=True, help='Disable personal record markers (strength charts only)')
+def visualize(exercise, metric, output, period, data, theme, no_stats, no_records):
+    """Generate visualization graphs for workout progression
+
+    Examples:
+        # Dark theme strength chart with PR markers and stats (default)
+        python -m cli.gym_cli visualize -e "Bench Press"
+
+        # Combined strength + volume chart
+        python -m cli.gym_cli visualize -e "Squat" -m combined
+
+        # Light theme for daytime viewing
+        python -m cli.gym_cli visualize -e "Deadlift" -t light
+    """
     try:
         # Load data
         # Extract just the filename if full path is provided
@@ -185,23 +200,51 @@ def visualize(exercise, metric, output, period, data):
             sys.exit(1)
 
         # Generate chart based on metric
+        show_stats = not no_stats
+        show_records = not no_records
+
         if metric in ['strength', '1rm']:
             click.echo(f"📊 Generating strength progression chart for {exercise}...")
-            fig = create_strength_progression_chart(df, exercise=exercise, show_trend=True)
+            click.echo(f"   Theme: {theme} | Stats: {show_stats} | PR markers: {show_records}")
+            fig = create_strength_progression_chart(
+                df,
+                exercise=exercise,
+                show_trend=True,
+                show_statistics=show_stats,
+                show_records=show_records,
+                theme=theme
+            )
         elif metric == 'volume':
             click.echo(f"📊 Generating volume tracking chart for {exercise}...")
-            fig = create_volume_chart(df, exercise=exercise, chart_type='bar')
+            click.echo(f"   Theme: {theme} | Stats: {show_stats}")
+            fig = create_volume_chart(
+                df,
+                exercise=exercise,
+                chart_type='bar',
+                show_statistics=show_stats,
+                theme=theme
+            )
+        elif metric == 'combined':
+            click.echo(f"📊 Generating combined metrics chart for {exercise}...")
+            click.echo(f"   Theme: {theme} | Stats: {show_stats}")
+            fig = create_combined_metrics_chart(
+                df,
+                exercise=exercise,
+                show_statistics=show_stats,
+                theme=theme
+            )
 
         # Determine output path
         if not output:
             output_dir = Path('output')
             output_dir.mkdir(exist_ok=True)
-            output = output_dir / f"{exercise.lower().replace(' ', '_')}_{metric}.png"
+            output = output_dir / f"{exercise.lower().replace(' ', '_')}_{metric}_{theme}.png"
 
-        # Save figure
-        save_figure(fig, str(output))
+        # Save figure with theme
+        save_figure(fig, str(output), theme=theme)
 
         click.secho(f"✓ Chart saved to: {output}", fg='green')
+        click.echo(f"  • Theme: {theme} mode (optimized for {'night' if theme == 'dark' else 'day'} viewing)")
         click.echo(f"  • Aspect ratio: 9:16 (perfect for TikTok/Xiaohongshu)")
         click.echo(f"  • Resolution: {int(fig.get_figwidth() * fig.dpi)}x{int(fig.get_figheight() * fig.dpi)} pixels")
 
@@ -312,7 +355,8 @@ def analyze(focus, period, data):
 @click.option('--metric', '-m', type=click.Choice(['strength', 'volume', '1rm']), default='strength', help='Comparison metric')
 @click.option('--output', '-o', type=click.Path(), help='Output file path')
 @click.option('--data', '-d', default='data/sample_workout.csv', help='Path to workout data CSV')
-def compare(exercises, metric, output, data):
+@click.option('--theme', '-t', type=click.Choice(['dark', 'light']), default='dark', help='Color theme (default: dark for night viewing)')
+def compare(exercises, metric, output, data, theme):
     """Compare progression across multiple exercises"""
     try:
         # Parse exercise list
@@ -326,21 +370,23 @@ def compare(exercises, metric, output, data):
         df = loader.load_csv(data_file)
 
         click.echo(f"📊 Comparing {metric} for {len(exercise_list)} exercises...")
+        click.echo(f"   Theme: {theme}")
 
         # Generate comparison chart
         metric_type = 'strength' if metric in ['strength', '1rm'] else 'volume'
-        fig = create_comparison_chart(df, exercises=exercise_list, metric=metric_type)
+        fig = create_comparison_chart(df, exercises=exercise_list, metric=metric_type, theme=theme)
 
         # Determine output path
         if not output:
             output_dir = Path('output')
             output_dir.mkdir(exist_ok=True)
-            output = output_dir / f"comparison_{metric}.png"
+            output = output_dir / f"comparison_{metric}_{theme}.png"
 
-        # Save figure
-        save_figure(fig, str(output))
+        # Save figure with theme
+        save_figure(fig, str(output), theme=theme)
 
         click.secho(f"✓ Comparison chart saved to: {output}", fg='green')
+        click.echo(f"  • Theme: {theme} mode (optimized for {'night' if theme == 'dark' else 'day'} viewing)")
 
         # Close figure
         import matplotlib.pyplot as plt
