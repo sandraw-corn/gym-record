@@ -274,8 +274,9 @@ class TestTrendAnalysis:
         result = calculate_moving_average(data, window=2)
 
         assert len(result) == len(data)
-        assert pd.isna(result.iloc[0])  # First value is NaN
+        assert result.iloc[0] == 100  # First value (min_periods=1)
         assert result.iloc[1] == 105  # (100 + 110) / 2
+        assert result.iloc[2] == 115  # (110 + 120) / 2
 
     @pytest.mark.unit
     def test_calculate_strength_progression(self):
