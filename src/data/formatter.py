@@ -31,7 +31,7 @@ EXERCISE_MAPPING = {
     "硬拉": "Deadlift",
     "罗马尼亚硬拉": "Romanian Deadlift",
     "直腿硬拉": "Stiff-Legged Deadlift",
-    "深蹲": "Squat",
+    "深蹲": "Smith Squat",  # Gym only has Smith machine, no squat rack
     "史密斯深蹲": "Smith Squat",
     "杠铃深蹲": "Barbell Squat",
     "哑铃深蹲": "Dumbbell Squat",
