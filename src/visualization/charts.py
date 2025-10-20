@@ -25,6 +25,60 @@ from src.analysis.metrics import calculate_1rm, calculate_volume_over_time
 
 
 # ============================================================================
+# EXERCISE-SPECIFIC CONFIGURATIONS
+# ============================================================================
+
+# Exercise-specific hypertrophy zones (min_reps, max_reps)
+# Based on exercise type and loading patterns
+HYPERTROPHY_ZONES = {
+    'smith squat': (6, 10),  # Lower reps for heavy compound
+    'squat': (6, 10),
+    'deadlift': (5, 8),
+    'bench press': (6, 10),
+    'hip thrust': (8, 12),  # Standard hypertrophy zone
+    'leg press': (8, 12),
+    'default': (8, 12)  # Standard hypertrophy zone for other exercises
+}
+
+def get_hypertrophy_zone(exercise: str) -> tuple:
+    """Get exercise-specific hypertrophy zone (min_reps, max_reps)."""
+    exercise_lower = exercise.lower()
+    return HYPERTROPHY_ZONES.get(exercise_lower, HYPERTROPHY_ZONES['default'])
+
+
+def add_missing_workout_markers(ax, dates, values, theme: str = 'dark'):
+    """
+    Add question mark markers for gaps in workout schedule.
+
+    Adds markers when there's a gap of more than 10 days between workouts,
+    showing the last known value with a question mark.
+    """
+    text_color = '#e0e0e0' if theme == 'dark' else '#2b2b2b'
+
+    for i in range(len(dates) - 1):
+        current_date = dates.iloc[i] if hasattr(dates, 'iloc') else dates[i]
+        next_date = dates.iloc[i + 1] if hasattr(dates, 'iloc') else dates[i + 1]
+        gap_days = (next_date - current_date).days
+
+        # If gap is more than 10 days, mark as missed workout
+        if gap_days > 10:
+            current_value = values.iloc[i] if hasattr(values, 'iloc') else values[i]
+
+            # Add question mark annotation
+            ax.text(
+                current_date,
+                current_value,
+                '?',
+                fontsize=24,
+                fontweight='bold',
+                color='#FF6B6B',  # Red for attention
+                ha='center',
+                va='center',
+                zorder=5
+            )
+
+
+# ============================================================================
 # STRENGTH PROGRESSION CHARTS
 # ============================================================================
 
@@ -216,6 +270,9 @@ def create_strength_progression_chart(
             )
         )
 
+    # Add missing workout markers
+    add_missing_workout_markers(ax, df_grouped['date'], df_grouped['estimated_1rm'], theme=theme)
+
     # Add statistical annotations if requested
     if show_statistics and len(df_grouped) >= 2:
         # Calculate statistics
@@ -368,68 +425,90 @@ def create_volume_chart(
 
     # Add progressive overload prediction if requested
     if show_prediction and len(volume_series) >= 2:
-        # Convert dates to numeric for regression
-        x_numeric = mdates.date2num(volume_series.index)
-        y = volume_series.values
+        # Get the most recent workout data for this exercise to infer sets/reps/weight
+        df_exercise = data[data['exercise'].str.lower() == exercise.lower()].copy()
+        last_workout = df_exercise[df_exercise['date'] == volume_series.index[-1]]
 
-        # Linear regression
-        slope, intercept = np.polyfit(x_numeric, y, 1)
+        if len(last_workout) > 0:
+            # Calculate average reps and weight from last workout
+            avg_reps = last_workout['reps'].mean()
+            avg_weight = last_workout['weight'].mean()
+            num_sets = len(last_workout)
 
-        # Project forward for next workout (7 days ahead)
-        last_date = volume_series.index[-1]
-        next_workout_date = last_date + pd.Timedelta(days=7)
-        next_workout_numeric = mdates.date2num(next_workout_date)
-        predicted_volume = slope * next_workout_numeric + intercept
+            # Convert dates to numeric for regression
+            x_numeric = mdates.date2num(volume_series.index)
+            y = volume_series.values
 
-        # Ensure predicted volume is positive
-        predicted_volume = max(predicted_volume, 0)
+            # Linear regression
+            slope, intercept = np.polyfit(x_numeric, y, 1)
 
-        # Create prediction line from last actual point to prediction
-        prediction_x = [last_date, next_workout_date]
-        prediction_y = [volume_series.iloc[-1], predicted_volume]
+            # Project forward for next workout (7 days ahead)
+            last_date = volume_series.index[-1]
+            next_workout_date = last_date + pd.Timedelta(days=7)
+            next_workout_numeric = mdates.date2num(next_workout_date)
+            predicted_volume = slope * next_workout_numeric + intercept
 
-        # Plot prediction with dotted gold line
-        ax.plot(
-            prediction_x,
-            prediction_y,
-            linestyle=':',
-            linewidth=3.5,
-            color='#FFD700',  # Gold
-            alpha=0.85,
-            label='Next Goal',
-            zorder=3
-        )
+            # Ensure predicted volume is positive
+            predicted_volume = max(predicted_volume, 0)
 
-        # Add target marker at prediction point
-        ax.scatter(
-            next_workout_date,
-            predicted_volume,
-            marker='D',  # Diamond
-            s=250,
-            color='#FFD700',
-            edgecolor=text_color,
-            linewidth=2,
-            zorder=4,
-            alpha=0.85
-        )
+            # Suggest progressive overload: increase weight by ~2.5kg while keeping sets/reps similar
+            suggested_weight = avg_weight + 2.5
+            suggested_reps = int(round(avg_reps))
+            suggested_sets = num_sets
 
-        # Add annotation for predicted value
-        ax.annotate(
-            f'Goal: {predicted_volume:.0f} kg',
-            xy=(next_workout_date, predicted_volume),
-            xytext=(10, 10),
-            textcoords='offset points',
-            fontsize=13,
-            fontweight='bold',
-            color='#FFD700',
-            bbox=dict(
-                boxstyle='round,pad=0.5',
-                facecolor='#3a3a3a' if theme == 'dark' else '#f0f0f0',
-                edgecolor='#FFD700',
-                linewidth=2,
-                alpha=0.95
+            # Recalculate predicted volume based on suggested parameters
+            predicted_volume_adjusted = suggested_sets * suggested_reps * suggested_weight
+
+            # Create prediction line from last actual point to prediction
+            prediction_x = [last_date, next_workout_date]
+            prediction_y = [volume_series.iloc[-1], predicted_volume_adjusted]
+
+            # Plot prediction with dotted gold line
+            ax.plot(
+                prediction_x,
+                prediction_y,
+                linestyle=':',
+                linewidth=3.5,
+                color='#FFD700',  # Gold
+                alpha=0.85,
+                label='Next Goal',
+                zorder=3
             )
-        )
+
+            # Add target marker at prediction point
+            ax.scatter(
+                next_workout_date,
+                predicted_volume_adjusted,
+                marker='D',  # Diamond
+                s=250,
+                color='#FFD700',
+                edgecolor=text_color,
+                linewidth=2,
+                zorder=4,
+                alpha=0.85
+            )
+
+            # Add annotation with sets × reps @ weight format
+            ax.annotate(
+                f'Goal: {suggested_sets} sets × {suggested_reps} reps @ {suggested_weight:.1f} kg',
+                xy=(next_workout_date, predicted_volume_adjusted),
+                xytext=(10, 10),
+                textcoords='offset points',
+                fontsize=11,
+                fontweight='bold',
+                color='#FFD700',
+                bbox=dict(
+                    boxstyle='round,pad=0.5',
+                    facecolor='#3a3a3a' if theme == 'dark' else '#f0f0f0',
+                    edgecolor='#FFD700',
+                    linewidth=2,
+                    alpha=0.95
+                )
+            )
+
+    # Add missing workout markers (only for line/area charts, not bars)
+    if chart_type in ['line', 'area']:
+        add_missing_workout_markers(ax, volume_series.index, volume_series.values, theme=theme)
 
     # Add statistical annotations if requested
     if show_statistics and len(volume_series) >= 2:
@@ -542,8 +621,8 @@ def create_rep_range_heatmap(
     # Calculate rep range distribution
     rep_counts = df['reps'].value_counts().sort_index()
 
-    # Define hypertrophy zone (8-12 reps)
-    hypertrophy_min, hypertrophy_max = 8, 12
+    # Get exercise-specific hypertrophy zone
+    hypertrophy_min, hypertrophy_max = get_hypertrophy_zone(exercise)
 
     # Create colors: gold for hypertrophy zone, primary color for others
     colors = [
@@ -568,7 +647,7 @@ def create_rep_range_heatmap(
         alpha=0.15,
         color='#FFD700',
         zorder=0,
-        label='Hypertrophy Zone (8-12 reps)'
+        label=f'Hypertrophy Zone ({hypertrophy_min}-{hypertrophy_max} reps)'
     )
 
     # Add statistical annotations if requested
@@ -867,6 +946,9 @@ def create_combined_metrics_chart(
         ax1.tick_params(labelbottom=False)
 
         # === BOTTOM PLOT: REP PROGRESSION ===
+        # Get exercise-specific hypertrophy zone
+        hypertrophy_min, hypertrophy_max = get_hypertrophy_zone(exercise)
+
         # Plot average reps per workout
         ax2.plot(
             rep_progression.index,
@@ -879,18 +961,18 @@ def create_combined_metrics_chart(
             markeredgewidth=1.2
         )
 
-        # Highlight hypertrophy zone (8-12 reps)
-        ax2.axhspan(8, 12, alpha=0.15, color=hypertrophy_zone_color, zorder=0)
+        # Highlight hypertrophy zone
+        ax2.axhspan(hypertrophy_min, hypertrophy_max, alpha=0.15, color=hypertrophy_zone_color, zorder=0)
 
         # Add horizontal lines for zone boundaries
-        ax2.axhline(8, linestyle='--', linewidth=1.5, color=hypertrophy_zone_color, alpha=0.5, label='Hypertrophy Zone')
-        ax2.axhline(12, linestyle='--', linewidth=1.5, color=hypertrophy_zone_color, alpha=0.5)
+        ax2.axhline(hypertrophy_min, linestyle='--', linewidth=1.5, color=hypertrophy_zone_color, alpha=0.5, label=f'Hypertrophy Zone ({hypertrophy_min}-{hypertrophy_max})')
+        ax2.axhline(hypertrophy_max, linestyle='--', linewidth=1.5, color=hypertrophy_zone_color, alpha=0.5)
 
         # Add statistical annotations for rep range
         if show_statistics and len(rep_progression) >= 2:
             avg_reps = rep_progression.mean()
             total_sets = len(df)
-            hypertrophy_sets = len(df[(df['reps'] >= 8) & (df['reps'] <= 12)])
+            hypertrophy_sets = len(df[(df['reps'] >= hypertrophy_min) & (df['reps'] <= hypertrophy_max)])
             hypertrophy_pct = (hypertrophy_sets / total_sets) * 100 if total_sets > 0 else 0
 
             stats_text = f'Avg reps: {avg_reps:.1f} | In zone: {hypertrophy_pct:.1f}%'
