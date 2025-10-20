@@ -64,15 +64,34 @@ def _display_image_with_chafa(image_path: str):
             terminal_height = 40
 
         # Run chafa with options optimized for visualization preview
-        subprocess.run([
-            'chafa',
-            '--size', f'60x{terminal_height}',  # Fit to terminal width
-            '--format', 'symbols',  # Use symbols for better quality
+        # Try different output formats based on terminal capabilities
+        # Priority: kitty > iterm2 > sixels > symbols
+
+        # Detect terminal type
+        term = os.environ.get('TERM', '')
+        term_program = os.environ.get('TERM_PROGRAM', '')
+
+        chafa_cmd = ['chafa']
+
+        # Use appropriate format based on terminal
+        # Ghostty supports kitty graphics protocol
+        if 'kitty' in term or 'ghostty' in term.lower():
+            chafa_cmd.extend(['--format', 'kitty'])
+        elif term_program == 'iTerm.app':
+            chafa_cmd.extend(['--format', 'iterm2'])
+        elif 'xterm' in term or 'screen' in term:
+            chafa_cmd.extend(['--format', 'sixels'])
+        else:
+            chafa_cmd.extend(['--format', 'symbols'])
+
+        chafa_cmd.extend([
+            '--size', f'60x{terminal_height}',
             '--colors', 'full',  # Full truecolor (24-bit)
-            '--color-space', 'rgb',  # RGB color space
-            '--dither', 'none',  # No dithering for charts
+            '--color-space', 'rgb',
             str(image_path)
-        ], check=True)
+        ])
+
+        subprocess.run(chafa_cmd, check=True)
 
         click.echo()  # Add newline after image
 
