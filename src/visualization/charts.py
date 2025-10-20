@@ -433,7 +433,11 @@ def create_volume_chart(
             # Calculate average reps and weight from last workout
             avg_reps = last_workout['reps'].mean()
             avg_weight = last_workout['weight'].mean()
-            num_sets = len(last_workout)
+            # Use 'sets' column if available, otherwise count rows
+            if 'sets' in last_workout.columns and pd.notna(last_workout['sets'].iloc[0]):
+                num_sets = int(last_workout['sets'].iloc[0])
+            else:
+                num_sets = len(last_workout)
 
             # Convert dates to numeric for regression
             x_numeric = mdates.date2num(volume_series.index)
@@ -487,6 +491,19 @@ def create_volume_chart(
                 zorder=4,
                 alpha=0.85
             )
+
+            # For bar charts, add a prediction bar in gold/orange
+            if chart_type == 'bar':
+                ax.bar(
+                    next_workout_date,
+                    predicted_volume_adjusted,
+                    color='#FFA500',  # Orange for prediction bar
+                    alpha=0.7,
+                    edgecolor='#FFD700',  # Gold edge
+                    linewidth=2.5,
+                    hatch='///',  # Diagonal hatching to distinguish from actual data
+                    zorder=2
+                )
 
             # Add annotation with sets × reps @ weight format
             ax.annotate(
@@ -652,9 +669,15 @@ def create_rep_range_heatmap(
 
     # Add statistical annotations if requested
     if show_statistics:
-        # Calculate percentage in hypertrophy zone
-        total_sets = len(df)
-        hypertrophy_sets = len(df[(df['reps'] >= hypertrophy_min) & (df['reps'] <= hypertrophy_max)])
+        # Calculate total sets (use 'sets' column if available, otherwise count rows)
+        if 'sets' in df.columns and df['sets'].notna().all():
+            total_sets = int(df['sets'].sum())
+            # For hypertrophy zone calculation, multiply each row by its sets count
+            hypertrophy_sets = int(df[(df['reps'] >= hypertrophy_min) & (df['reps'] <= hypertrophy_max)]['sets'].sum())
+        else:
+            total_sets = len(df)
+            hypertrophy_sets = len(df[(df['reps'] >= hypertrophy_min) & (df['reps'] <= hypertrophy_max)])
+
         hypertrophy_pct = (hypertrophy_sets / total_sets) * 100 if total_sets > 0 else 0
 
         # Calculate average reps
@@ -1108,7 +1131,10 @@ def create_combined_metrics_chart(
     ax2.xaxis.set_major_locator(mdates.AutoDateLocator())
     fig.autofmt_xdate()
 
-    # Adjust layout
-    fig.tight_layout()
+    # Adjust layout (use try/except to suppress warnings with shared axes)
+    try:
+        fig.tight_layout()
+    except:
+        pass  # Shared axes sometimes cause warnings, but layout is still correct
 
     return fig
